@@ -17,6 +17,7 @@ def wc_banner():
 """)
 
 def main():
+    wc_banner()
     while True:
         command = input("> ").strip().lower()
 
