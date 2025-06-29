@@ -21,17 +21,17 @@ def main():
     while True:
         command = input("> ").strip().lower()
 
-        if command == "help":
+        if command in ("h", "help"):
             print("""
 Available commands:
-  help    Show this help message
-  exit    Quit Aladdin
+  h    help    Show this help message
+  e    exit    Quit Aladdin
 """)
-        elif command == "exit":
+        elif command in ("e", "exit"):
             print("Goodbye!")
             break
         else:
-            print(f"Unknown command: '{command}' (type 'help' to see commands)")
+            print(f"Unknown command: '{command}' (type 'h' to see commands)")
 
 if __name__ == "__main__":
     main()
