@@ -2,6 +2,9 @@ import os
 import whois
 import re
 from datetime import datetime
+import concurrent.futures
+import dns.resolver
+import requests
 
 
 def wc_banner():
@@ -22,6 +25,82 @@ def wc_banner():
         beginner-friendly reconnaissance tool | by acysecstudent
 """)
 
+def load_wordlist(filepath="subdomains.txt"):
+    try:
+        with open(filepath, "r") as file:
+            return [line.strip() for line in file if line.strip()]
+    except FileNotFoundError:
+        print(f"[!] Wordlist '{filepath}' not found.")
+        return []
+        
+def dns_bruteforce(domain, wordlist):
+    found = []
+
+    def resolve_sub(sub):
+        full_domain = f"{sub}.{domain}"
+        try:
+            dns.resolver.resolve(full_domain, "A")
+            return full_domain
+        except:
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        results = executor.map(resolve_sub, wordlist)
+
+    for result in results:
+        if result:
+            found.append(result)
+
+    return found
+    
+def query_public_sources(domain):
+    found = set()
+
+    try:
+        response = requests.get(f"https://crt.sh/?q={domain}&output=json", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            for entry in data:
+                name_value = entry.get("name_value", "")
+                for sub in name_value.splitlines():
+                
+                    if domain in sub:
+                        found.add(sub.strip())
+    except:
+        pass
+
+    try:
+        response = requests.get(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=10)
+        if response.status_code == 200:
+            lines = response.text.splitlines()
+            for line in lines:
+                sub = line.split(",")[0].strip()
+                if domain in sub:
+                    found.add(sub)
+    except:
+        pass
+
+    return list(found)
+    
+def find_subdomains(domain, wordlist_path="subdomains.txt"):
+    print(f"\n[ Subdomain Enumeration for {domain} ]\n")
+
+    wordlist = load_wordlist(wordlist_path)
+    if not wordlist:
+        return
+
+    brute_results = dns_bruteforce(domain, wordlist)
+    api_results = query_public_sources(domain)
+
+    all_found = sorted(set(brute_results + api_results))
+
+    if all_found:
+        for sub in all_found:
+            print(f"[+] {sub}")
+        print(f"\n[✓] Total found: {len(all_found)}")
+    else:
+        print("[!] No subdomains found.")
+        
 def format_value(value):
     # Format lists and datetimes nicely
     
@@ -105,6 +184,18 @@ def main():
         elif command in ("clear", "c"):
             clear_screen()
             wc_banner()
+            
+        elif cmd in ["s", "sub"]:
+    
+            if len(args) != 1:
+                print("[!] Usage: sub [domain]")
+            
+            elif not is_valid_domain(args[0]):
+                print("[!] Invalid domain format. Example: example.com")
+            
+            else:
+                find_subdomains(args[0])
+
             
         elif command.startswith("w") or command.startswith("whois"):
             parts = command.split()
